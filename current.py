@@ -79,8 +79,8 @@ def read_channel(channel):
 	if (value & 0x800000):
 		value = ~value+1;
 		value = -1*(value & 0xFFFFFF);
-	value = float(value) * 205.376 / 16777216
-	#logging.debug('channel = %.2f', channel)
+	value = float(value) * 200.870279 / 16777216
+	#logging.debug('value = %.2f', value)
 
 	return value; 
 
