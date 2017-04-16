@@ -1,13 +1,13 @@
 #!/usr/bin/python
  
-#from ISStreamer.Streamer import Streamer
+from ISStreamer.Streamer import Streamer
 from gpiozero import InputDevice
 import smbus, logging, sys, time
  
 # Streamer constructor, this will create a bucket called Python Stream Example
 # you'll be able to see this name in your list of logs on initialstate.com
 # your access_key is a secret and is specific to you, don't share it!
-#streamer = Streamer(bucket_name="Python Stream Example", bucket_key="python_example", access_key="CWsqEW2S6QI69NR2ZDhPml6MotNAfiPN")
+streamer = Streamer(bucket_name="Power Meter", bucket_key="power_meter_bucket", access_key="CWsqEW2S6QI69NR2ZDhPml6MotNAfiPN")
  
 DataReady = InputDevice(17, False) # look at GPIO for Data Ready from the ADC
  
@@ -80,6 +80,8 @@ def read_channel(channel):
 		value = ~value+1;
 		value = -1*(value & 0xFFFFFF);
 	value = float(value) * 200.870279 / 16777216
+	if (value < 0):
+		value = 0
 	#logging.debug('value = %.2f', value)
 
 	return value; 
@@ -105,4 +107,10 @@ calibrate()
 while (1):
 	ch1 = read_channel(1) # read channel 1
 	ch2 = read_channel(2) # read channel 2
-	logging.debug(' ch1 = %.2f amps, ch2 = %.2f amps', ch1, ch2)
+	data = [ch1, ch2]
+	#logging.debug(' data = %s', data)
+	wattage = 115 * max(data) / 1000
+	logging.debug(' ch1 = %.2f amps, ch2 = %.2f amps, wattage = %.2f kw', ch1, ch2, wattage)
+	streamer.log("L1", round(ch1, 2))
+	streamer.log("L2", round(ch2, 2))
+	streamer.log("Watts", round(wattage, 1))
