@@ -24,6 +24,8 @@ ADC_OUT_B1 = 0x13
 ADC_OUT_B2 = 0x12
 ch1 = 0 # current value of ch 1 scaled to current
 ch2 = 0 # current value of ch 2 scaled to current 
+ch1_calib = 32.919548
+ch2_calib = 40.447906
 
 # REG0x00:PU_CTRL
 RR =	0
@@ -60,7 +62,7 @@ def calibrate():
 	return;
 
 # Method to read ADC value of channel 1
-def read_channel(channel):
+def read_channel(channel, calib):
 	if (channel == 1):
 		clear_bit(CTRL2, CHS)
 	elif (channel == 2):
@@ -79,7 +81,7 @@ def read_channel(channel):
 	if (value & 0x800000):
 		value = ~value+1;
 		value = -1*(value & 0xFFFFFF);
-	value = float(value) * 200.870279 / 16777216
+	value = float(value) * calib / 16777216
 	if (value < 0):
 		value = 0
 	#logging.debug('value = %.2f', value)
@@ -105,12 +107,12 @@ powerup()
 calibrate()
  
 while (1):
-	ch1 = read_channel(1) # read channel 1
-	ch2 = read_channel(2) # read channel 2
+	ch1 = read_channel(1, ch1_calib) # read channel 1
+	ch2 = read_channel(2, ch2_calib) # read channel 2
 	data = [ch1, ch2]
 	#logging.debug(' data = %s', data)
 	wattage = 115 * max(data) / 1000
 	logging.debug(' ch1 = %.2f amps, ch2 = %.2f amps, wattage = %.2f kw', ch1, ch2, wattage)
-	streamer.log("L1", round(ch1, 2))
-	streamer.log("L2", round(ch2, 2))
-	streamer.log("Watts", round(wattage, 1))
+	#streamer.log("L1", round(ch1, 2))
+	#streamer.log("L2", round(ch2, 2))
+	#streamer.log("Watts", round(wattage, 1))
