@@ -3,11 +3,14 @@
 from ISStreamer.Streamer import Streamer
 from gpiozero import InputDevice
 import smbus, logging, sys, time
- 
+import pyowm # open weather stuff
+owm = pyowm.OWM('5ee48bfdfd0f00ca390e0450f8e600be')  # You MUST provide a valid API key
+
+
 # Streamer constructor, this will create a bucket called Python Stream Example
 # you'll be able to see this name in your list of logs on initialstate.com
 # your access_key is a secret and is specific to you, don't share it!
-streamer = Streamer(bucket_name="Power Meter", bucket_key="power_meter_bucket", access_key="CWsqEW2S6QI69NR2ZDhPml6MotNAfiPN")
+streamer = Streamer(bucket_name="Energy Meter", bucket_key="energy_meter_bucket", access_key="CWsqEW2S6QI69NR2ZDhPml6MotNAfiPN")
  
 DataReady = InputDevice(17, False) # look at GPIO for Data Ready from the ADC
  
@@ -24,8 +27,8 @@ ADC_OUT_B1 = 0x13
 ADC_OUT_B2 = 0x12
 ch1 = 0 # current value of ch 1 scaled to current
 ch2 = 0 # current value of ch 2 scaled to current 
-ch1_calib = 32.919548
-ch2_calib = 40.447906
+ch1_calib = 34.755092634
+ch2_calib = 40.434680254
 
 # REG0x00:PU_CTRL
 RR =	0
@@ -100,19 +103,36 @@ def clear_bit(reg, position):
 	bus.write_byte_data(DEVICE_ADDRESS, reg, reg_value & ~(1 << position))
 	return
 
+
+# Search for current weather in Edmonds
+logging.debug('Searching for weather')
+observation = owm.weather_at_place('Edmonds,Wa')
+logging.debug('Getting current weather for found location')
+weather = observation.get_weather()
+logging.debug('current temp = %s', weather.get_temperature('fahrenheit')['temp'])	
 # main
-logging.debug('Powering up device')
+logging.debug('Powering up adc')
 powerup()
 #logging.debug('PU_CTRL = %s', bus.read_byte_data(DEVICE_ADDRESS, PU_CTRL))
 calibrate()
+
+start = time.time()
  
 while (1):
 	ch1 = read_channel(1, ch1_calib) # read channel 1
 	ch2 = read_channel(2, ch2_calib) # read channel 2
 	data = [ch1, ch2]
 	#logging.debug(' data = %s', data)
-	wattage = 115 * max(data) / 1000
+	wattage = 230 * max(data)
+	cost = ( wattage / 1000 ) * 0.10 # cost per hour using 10 cents per kW/h
+	cost_s = cost / 3600
+	start = time.time()
 	logging.debug(' ch1 = %.2f amps, ch2 = %.2f amps, wattage = %.2f kw', ch1, ch2, wattage)
-	#streamer.log("L1", round(ch1, 2))
-	#streamer.log("L2", round(ch2, 2))
-	#streamer.log("Watts", round(wattage, 1))
+	streamer.log("L1", round(ch1, 2))
+	streamer.log("L2", round(ch2, 2))
+	streamer.log("Watts (w)", round(wattage, 1))
+	streamer.log("Watts (kW)", round(wattage/1000, 3))
+	streamer.log("Cost ($/hour)", round(cost, 3) )
+	streamer.log("Cost ($/second)", cost_s)
+	weather = observation.get_weather()
+	streamer.log('outside_temp', round(weather.get_temperature('fahrenheit')['temp'], 1))	
